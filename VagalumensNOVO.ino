@@ -10,7 +10,8 @@
 
 // Biblioteca WIFI para ESP32
 #include <WiFi.h>
-
+String onn = "ON";
+String barra = "/";
 // Bibliotecas para contato com o Firebase no ESP32
 #include <Firebase_ESP_Client.h>
 #include "addons/TokenHelper.h"  // Provide the token generation process info.
@@ -41,7 +42,7 @@
 // Constantes para leitura LDR
 #define LDR_PIN 34
 #define MAX_ADC_READING 4095
-#define ADC_REF_VOLTAGE 3.3
+#define ADC_REF_VOLTAGE 5.0
 #define REF_RESISTANCE 3300  // Resistor do divisor de tensão
 #define LUX_CALC_SCALAR 12518931
 #define LUX_CALC_EXPONENT -1.405
@@ -65,20 +66,23 @@ String lampada1 = " L1";
 String lampada2 = " L2";
 String lampada3 = " L3";
 String lampada4 = " L4";
+String endeon1 = "";
 
-//Endereços dados Firebase
-String endeambiente1 = "";  //Endereços Ambiente
+// Endereços dados Firebase
+String endeambiente1 = "";  // Endereços Ambiente
 String endeambiente2 = "";
 String endeambiente3 = "";
 String endeambiente4 = "";
-String endemodo1 = "";
+String endemodo1 = "";  // Endereços Modo
 String endemodo2 = "";
 String endemodo3 = "";
 String endemodo4 = "";
-String endeluminosidade1 = "";
+String endeluminosidade1 = "";  // Endereços Luminosidade
 String endeluminosidade2 = "";
 String endeluminosidade3 = "";
 String endeluminosidade4 = "";
+String endeluminosidade5 = "";
+String endeon = "";
 
 //Váriaveis salvar valor em número do tipo do ambiente para cada lâmpada individualmente
 int ambiente1 = 0;
@@ -86,6 +90,7 @@ int ambiente2 = 0;
 int ambiente3 = 0;
 int ambiente4 = 0;
 
+int travageral1 = 0;
 // Variáveis WIFI
 String receba = "";
 String wifi = "";
@@ -93,24 +98,44 @@ String senha = "";
 String ndispositivo = "";
 String ndispositivo1 = "";
 
-// Set da Fita de LED
-const int ledPin = 23;
-const int freq = 490;
-const int ledChannel = 0;
-const int resolution = 8;
+// Set das saídas controladoras lâmpadas
+const int pin1 = 23;      // Saída lâmpada 1
+const int pin2 = 19;      // Saída lâmpada 2
+const int pin3 = 18;      // Saída lâmpada 3
+const int pin4 = 5;       // Saída lâmpada 4
+const int canal1 = 0;     // Canal PWM lâmpada 1
+const int canal2 = 1;     // Canal PWM lâmpada 2
+const int canal3 = 2;     // Canal PWM lâmpada 3
+const int canal4 = 3;     // Canal PWM lâmpada 4
+const int freq = 490;     // Frequência de trabalho PWM
+const int escalabit = 8;  // Escala 0-255 8bits PWM
 
+//Váriaveis dutyCycle das saídas PWM
+int saida1 = 0;
+int saida2 = 0;
+int saida3 = 0;
+int saida4 = 0;
+
+int travabot = 0;
+int posion = 1;
+int on = 0;
+String ons = "";
 int travamemoria = 0;
 int ndp = 1;
+int resetmode = 0;
 
 String lcdambiente1 = "Basic";
 String lcdambiente2 = "Basic";
 String lcdambiente3 = "Basic";
 String lcdambiente4 = "Basic";
-String lcdmodo1 = "AS";
-String lcdmodo2 = "AS";
-String lcdmodo3 = "AS";
-String lcdmodo4 = "AS";
-
+String lcdmodo1 = "MS";
+String lcdmodo2 = "MS";
+String lcdmodo3 = "MS";
+String lcdmodo4 = "MS";
+int travamillis4 = 0;
+int travamillis2 = 0;
+int travamillis3 = 0;
+int travamillis5 = 0;
 // Sistema de Menus modo Offline
 int posi = 1;    //Posição do menu
 int ntrava = 0;  // Travas do menu
@@ -159,7 +184,7 @@ byte dir[] = {
   B10000,
   B00000
 };
-// Pixelart Seta
+// Pixelart Seta para a direita
 byte seta[] = {
   B00000,
   B01100,
@@ -168,6 +193,17 @@ byte seta[] = {
   B11111,
   B00110,
   B01100,
+  B00000
+};
+// Pixelart Seta para a esquerda
+byte setainv[] = {
+  B00000,
+  B00110,
+  B01100,
+  B11111,
+  B11111,
+  B01100,
+  B00110,
   B00000
 };
 // Pixelart Bloco Cheio
@@ -180,6 +216,28 @@ byte cheio[] = {
   B11111,
   B11111,
   B11111
+};
+//Pixelart parentêses esquerdo
+byte parenesq[] = {
+  B00001,
+  B00010,
+  B00100,
+  B00100,
+  B00100,
+  B00100,
+  B00010,
+  B00001
+};
+//Pixelart parentêses direito
+byte parendir[] = {
+  B10000,
+  B01000,
+  B00100,
+  B00100,
+  B00100,
+  B00100,
+  B01000,
+  B10000
 };
 
 // Travas modo Online
@@ -219,6 +277,7 @@ unsigned long millis1 = millis();
 unsigned long millis2 = millis();
 unsigned long millis3 = millis();
 unsigned long millis4 = millis();
+unsigned long millis7 = millis();
 
 
 //Login do database do Firebase
@@ -241,6 +300,7 @@ String luminosidad1 = "";
 String luminosidad2 = "";
 String luminosidad3 = "";
 String luminosidad4 = "";
+String luminosidad5 = "";
 String wifii = "";
 String senhai = "";
 String listenerPathi = "";
@@ -251,6 +311,7 @@ int luminosidade1 = 50;
 int luminosidade2 = 50;
 int luminosidade3 = 50;
 int luminosidade4 = 50;
+int luminosidade5 = 50;
 int modo = 2;
 int ambiente = 1;
 int wifis;
@@ -277,11 +338,14 @@ void setup() {
   lcd.clear();
   lcd.backlight();
 
-  // Pixelart WIFI set
+  // Pixelarts set
   lcd.createChar(0, dir);
   lcd.createChar(1, esq);
   lcd.createChar(2, seta);
   lcd.createChar(3, cheio);
+  lcd.createChar(4, setainv);
+  lcd.createChar(5, parenesq);
+  lcd.createChar(6, parendir);
 
   // Tela de ínico VagaLumens
   lcd.setCursor(3, 0);
@@ -304,12 +368,18 @@ void setup() {
   lcd.setCursor(0, 1);
   lcd.print("                ");
 
-  // Set pino fita de LED
-  ledcSetup(ledChannel, freq, resolution);
-  ledcAttachPin(ledPin, ledChannel);
+  // Set pinos de saída comando PWM
+  ledcSetup(canal1, freq, escalabit);
+  ledcSetup(canal2, freq, escalabit);
+  ledcSetup(canal3, freq, escalabit);
+  ledcSetup(canal4, freq, escalabit);
+  ledcAttachPin(pin1, canal1);
+  ledcAttachPin(pin2, canal2);
+  ledcAttachPin(pin3, canal3);
+  ledcAttachPin(pin4, canal4);
 
   // Nome visível do bluetooth do dispositivo
-  ESP_BT.begin("Vagalumens_Config");
+  ESP_BT.begin("Vagalumens Central");
 
   // Pasta de armazenamendo de dados
   preferences.begin("WF", false);
@@ -318,106 +388,119 @@ void setup() {
 // Função Firebase que executa quando há alteração na pasta do servidor selecionada
 void streamCallback(FirebaseStream data) {
   // Altera as variáveis para os valores do servidor
-  if (vmabt == 0) {
 
-    if (data.dataPath().equals(endeambiente1)) {
-      ambient = data.stringData();
-      ambiente = ambient.toInt();
-      ambiente1 = ambient.toInt();
-      ndp = 1;
-      processoambi();
-    }
-    if (data.dataPath().equals(endeambiente2)) {
-      ambient = data.stringData();
-      ambiente = ambient.toInt();
-      ambiente2 = ambient.toInt();
-      ndp = 2;
-      processoambi();
-    }
-    if (data.dataPath().equals(endeambiente3)) {
-      ambient = data.stringData();
-      ambiente = ambient.toInt();
-      ambiente3 = ambient.toInt();
-      ndp = 3;
-      processoambi();
-    }
-    if (data.dataPath().equals(endeambiente4)) {
-      ambient = data.stringData();
-      ambiente = ambient.toInt();
-      ambiente4 = ambient.toInt();
-      ndp = 4;
-      processoambi();
-    }
-
-    if (data.dataPath().equals(endemodo1)) {
-      mod = data.stringData();
-      modo = mod.toInt();
-      ndp = 1;
-      processomodo();
-    }
-    if (data.dataPath().equals(endemodo2)) {
-      mod = data.stringData();
-      modo = mod.toInt();
-      ndp = 2;
-      processomodo();
-    }
-    if (data.dataPath().equals(endemodo3)) {
-      mod = data.stringData();
-      modo = mod.toInt();
-      ndp = 3;
-      processomodo();
-    }
-    if (data.dataPath().equals(endemodo4)) {
-      mod = data.stringData();
-      modo = mod.toInt();
-      ndp = 4;
-      processomodo();
-    }
-
-    if (data.dataPath().equals(endeluminosidade1)) {
-      luminosidad1 = data.stringData();
-      luminosidade1 = luminosidad1.toInt();
-      Serial.print("Luminosidade L1: ");
-      Serial.println(luminosidade1);
-    }
-
-    if (data.dataPath().equals(endeluminosidade2)) {
-      luminosidad2 = data.stringData();
-      luminosidade2 = luminosidad2.toInt();
-      Serial.print("Luminosidade L1: ");
-      Serial.println(luminosidade2);
-    }
-
-    if (data.dataPath().equals(endeluminosidade3)) {
-      luminosidad3 = data.stringData();
-      luminosidade3 = luminosidad3.toInt();
-      Serial.print("Luminosidade L1: ");
-      Serial.println(luminosidade3);
-    }
-
-    if (data.dataPath().equals(endeluminosidade4)) {
-      luminosidad4 = data.stringData();
-      luminosidade4 = luminosidad4.toInt();
-      Serial.print("Luminosidade L1: ");
-      Serial.println(luminosidade4);
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-    if (data.dataPath().equals("/DeleteD")) {
-      deletes = data.stringData();
-      DeleteD = deletes.toInt();
-    }
+  if (data.dataPath().equals(endeambiente1)) {
+    ambient = data.stringData();
+    ambiente = ambient.toInt();
+    ndp = 1;
+    processoambi();
   }
+  if (data.dataPath().equals(endeambiente2)) {
+    ambient = data.stringData();
+    ambiente = ambient.toInt();
+    ndp = 2;
+    processoambi();
+  }
+  if (data.dataPath().equals(endeambiente3)) {
+    ambient = data.stringData();
+    ambiente = ambient.toInt();
+    ndp = 3;
+    processoambi();
+  }
+  if (data.dataPath().equals(endeambiente4)) {
+    ambient = data.stringData();
+    ambiente = ambient.toInt();
+    ndp = 4;
+    processoambi();
+  }
+
+  if (data.dataPath().equals(endemodo1)) {
+    mod = data.stringData();
+    modo = mod.toInt();
+    ndp = 1;
+    processomodo();
+  }
+  if (data.dataPath().equals(endemodo2)) {
+    mod = data.stringData();
+    modo = mod.toInt();
+    ndp = 2;
+    processomodo();
+  }
+  if (data.dataPath().equals(endemodo3)) {
+    mod = data.stringData();
+    modo = mod.toInt();
+    ndp = 3;
+    processomodo();
+  }
+  if (data.dataPath().equals(endemodo4)) {
+    mod = data.stringData();
+    modo = mod.toInt();
+    ndp = 4;
+    processomodo();
+  }
+
+  if (data.dataPath().equals(endeluminosidade1)) {
+    luminosidad1 = data.stringData();
+    luminosidade1 = luminosidad1.toInt();
+    Serial.print("Luminosidade L1: ");
+    Serial.println(luminosidade1);
+    ddtrava();
+  }
+
+  if (data.dataPath().equals(endeluminosidade2)) {
+    luminosidad2 = data.stringData();
+    luminosidade2 = luminosidad2.toInt();
+    Serial.print("Luminosidade L2: ");
+    Serial.println(luminosidade2);
+    ddtrava();
+  }
+
+  if (data.dataPath().equals(endeluminosidade3)) {
+    luminosidad3 = data.stringData();
+    luminosidade3 = luminosidad3.toInt();
+    Serial.print("Luminosidade L3: ");
+    Serial.println(luminosidade3);
+    ddtrava();
+  }
+
+  if (data.dataPath().equals(endeluminosidade4)) {
+    luminosidad4 = data.stringData();
+    luminosidade4 = luminosidad4.toInt();
+    Serial.print("Luminosidade L4: ");
+    Serial.println(luminosidade4);
+    ddtrava();
+  }
+  if (data.dataPath().equals(endeluminosidade5)) {
+    luminosidad5 = data.stringData();
+    luminosidade5 = luminosidad4.toInt();
+    Serial.print("Luminosidade Todas: ");
+    Serial.println(luminosidade5);
+    ddtrava();
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+  if (data.dataPath().equals("/DeleteD" + ndispositivo)) {
+    deletes = data.stringData();
+    DeleteD = deletes.toInt();
+  }
+  delay (300);
+}
+
+
+
+void ddtrava() {
+  travad2 = 0;
 }
 //Processo que salva os dados das configurações do ambiente no sua determinada lâmpada
 void processoambi() {
@@ -489,6 +572,7 @@ void processoambi() {
       lcdambiente4 = "Solda";
     }
   }
+  travad2 = 0;
 }
 
 void processomodo() {
@@ -506,6 +590,9 @@ void processomodo() {
     if (ndp == 4) {
       lcdmodo4 = "MS";
     }
+
+    Serial.print("Modo:");
+    Serial.println("Manual L" + ndp);
   }
 
   if (modo == 3) {
@@ -521,11 +608,54 @@ void processomodo() {
     if (ndp == 4) {
       lcdmodo4 = "AS";
     }
+    Serial.print("Modo:");
+    Serial.println("Auto L" + ndp);
   }
+  travad2 = 0;
 }
 
 
-
+void pathing() {
+  //Composição endereço Ambiente da Lâmpada 1
+  endeambiente1 = nomeambiente + ndispositivo;
+  endeambiente1 = endeambiente1 + lampada1;
+  //Composição endereço Ambiente da Lâmpada 2
+  endeambiente2 = nomeambiente + ndispositivo;
+  endeambiente2 = endeambiente2 + lampada2;
+  //Composição endereço Ambiente da Lâmpada 3
+  endeambiente3 = nomeambiente + ndispositivo;
+  endeambiente3 = endeambiente3 + lampada3;
+  //Composição endereço Ambiente da Lâmpada 4
+  endeambiente4 = nomeambiente + ndispositivo;
+  endeambiente4 = endeambiente4 + lampada4;
+  //Composição endereço Modo da Lâmpada 1
+  endemodo1 = nomemodo + ndispositivo;
+  endemodo1 = endemodo1 + lampada1;
+  //Composição endereço Modo da Lâmpada 2
+  endemodo2 = nomemodo + ndispositivo;
+  endemodo2 = endemodo2 + lampada2;
+  //Composição endereço Modo da Lâmpada 3
+  endemodo3 = nomemodo + ndispositivo;
+  endemodo3 = endemodo3 + lampada3;
+  //Composição endereço Modo da Lâmpada 4
+  endemodo4 = nomemodo + ndispositivo;
+  endemodo4 = endemodo4 + lampada4;
+  //Composição endereço Luminosidade da Lâmpada 1
+  endeluminosidade1 = nomeluminosidade + ndispositivo;
+  endeluminosidade1 = endeluminosidade1 + lampada1;
+  //Composição endereço Luminosidade da Lâmpada 2
+  endeluminosidade2 = nomeluminosidade + ndispositivo;
+  endeluminosidade2 = endeluminosidade2 + lampada2;
+  //Composição endereço Luminosidade da Lâmpada 3
+  endeluminosidade3 = nomeluminosidade + ndispositivo;
+  endeluminosidade3 = endeluminosidade3 + lampada3;
+  //Composição endereço Luminosidade da Lâmpada 4
+  endeluminosidade4 = nomeluminosidade + ndispositivo;
+  endeluminosidade4 = endeluminosidade4 + lampada4;
+  endeon = onn + ndispositivo;
+  endeon1 = barra + onn;
+  endeon1 = endeon1 + ndispositivo;
+}
 
 
 
@@ -543,17 +673,23 @@ void streamTimeoutCallback(bool timeout) {
 
 void loop() {
 
+  // Ler valores dos Botões
+  botaomenos = !digitalRead(btmenos);
+  botaomais = !digitalRead(btmais);
+  botaoenter = !digitalRead(btenter);
+
   //Ler interruptor Manual/Automático
   vmabt = !digitalRead(mabt);
 
-
+  //Ler botão de HARDRESET
+  resetmode = !digitalRead(btreset);
 
   // Função de HARD RESET ESP Padrão Fábrica
-  if (DeleteD == 2) {
+  if (DeleteD == 2 || resetmode == 1) {
     preferences.remove("wifis");
     preferences.remove("senhas");
     preferences.remove("path");
-    preferences.remove("ndispo");
+    preferences.remove("dispon");
     ESP.restart();
   }
 
@@ -562,13 +698,15 @@ void loop() {
     millis3 = millis();
     travamillis = 1;
   }
-  if ((millis() - millis3) > 100) {
+  if ((millis() - millis3) > 500) {
     //Cálculos Matemáticos para converter o valor de leitura do pino do LDR na quantidade de LUX efetiva (precisa +- 20%)
-    ldrRawData = analogRead(LDR_PIN);                                         //Lê o valor entre 0-1023 do pino do ESP do LDR INTERNO
-    resistorVoltage = (float)ldrRawData / MAX_ADC_READING * ADC_REF_VOLTAGE;  // Calcula a tensão em cima do resistor
-    ldrVoltage = ADC_REF_VOLTAGE - resistorVoltage;                           // Calcula a tensão em cima do LDR
-    ldrResistance = ldrVoltage / resistorVoltage * REF_RESISTANCE;            // Calcula a resistência do LDR de acordo com a voltagem
-    Lux = LUX_CALC_SCALAR * pow(ldrResistance, LUX_CALC_EXPONENT);            // Converte os calculos no valor em LUX
+    ldrRawData = analogRead(LDR_PIN);                                                          // Lê o valor entre 0-1023 do pino do ESP do LDR INTERNO
+    resistorVoltage = (float)ldrRawData / MAX_ADC_READING * ADC_REF_VOLTAGE;                   // Calcula a tensão em cima do resistor
+    ldrVoltage = ADC_REF_VOLTAGE - resistorVoltage;                                            // Calcula a tensão em cima do LDR
+    ldrResistance = ldrVoltage / resistorVoltage * REF_RESISTANCE;                             // Calcula a resistência do LDR de acordo com a voltagem
+    Lux = LUX_CALC_SCALAR * pow(ldrResistance, LUX_CALC_EXPONENT);                             // Converte os calculos no valor em LUX
+    Firebase.RTDB.setInt(&fbdo, String(listenerPath + "/LUX Central D" + ndispositivo), Lux);  // Envia a informação para o servidor
+    travamillis = 0;
   }
 
   //Modo Online do dispositivo
@@ -585,100 +723,188 @@ void loop() {
     ntrava9 = 0;
     ntrava10 = 0;
     ntrava11 = 0;
+    if (travamemoria == 0) {
+      // Ler dados do Wifi salvos na memória (caso não exista retorna "")
+      wifii = preferences.getString("wifis", "");
+      senhai = preferences.getString("senhas", "");
+      listenerPathi = preferences.getString("path", "");
+      ndispositivo1 = preferences.getString("dispon", "");
+      //Verificar se os dados da memória existem ou não, caso existam salvar nas determinadas váriaveis
+      if (wifii == "" || senhai == "" || listenerPathi == "" || ndispositivo1 == "") {
 
-    // Ler dados do Wifi salvos na memória (caso não exista retorna "")
-    wifii = preferences.getString("wifis", "");
-    senhai = preferences.getString("senhas", "");
-    listenerPathi = preferences.getString("path", "");
-    ndispositivo1 = preferences.getString("ndispo", "");
+      } else {
+        //Número do dispositivo de 1-4
+        ndispositivo = ndispositivo1;
 
-    //Verificar se os dados da memória existem ou não, caso existam salvar nas determinadas váriaveis
-    if (wifii == "" || senhai == "" || listenerPathi == "" || ndispositivo1 == "") {
+        //Chama a função de endereçamento
+        pathing();
 
-    } else {
-      //Número do dispositivo de 1-4
-      ndispositivo = ndispositivo1;
-      //Composição endereço Ambiente da Lâmpada 1
-      endeambiente1 = nomeambiente + ndispositivo;
-      endeambiente1 = endeambiente1 + lampada1;
-      //Composição endereço Ambiente da Lâmpada 2
-      endeambiente2 = nomeambiente + ndispositivo;
-      endeambiente2 = endeambiente2 + lampada2;
-      //Composição endereço Ambiente da Lâmpada 3
-      endeambiente3 = nomeambiente + ndispositivo;
-      endeambiente3 = endeambiente3 + lampada3;
-      //Composição endereço Ambiente da Lâmpada 4
-      endeambiente4 = nomeambiente + ndispositivo;
-      endeambiente4 = endeambiente4 + lampada4;
-      //Composição endereço Modo da Lâmpada 1
-      endemodo1 = nomemodo + ndispositivo;
-      endemodo1 = endemodo1 + lampada1;
-      //Composição endereço Modo da Lâmpada 2
-      endemodo2 = nomemodo + ndispositivo;
-      endemodo2 = endemodo2 + lampada2;
-      //Composição endereço Modo da Lâmpada 3
-      endemodo3 = nomemodo + ndispositivo;
-      endemodo3 = endemodo3 + lampada3;
-      //Composição endereço Modo da Lâmpada 4
-      endemodo4 = nomemodo + ndispositivo;
-      endemodo4 = endemodo4 + lampada4;
-      //Composição endereço Luminosidade da Lâmpada 1
-      endeluminosidade1 = nomeluminosidade + ndispositivo;
-      endeluminosidade1 = endeluminosidade1 + lampada1;
-      //Composição endereço Luminosidade da Lâmpada 2
-      endeluminosidade2 = nomeluminosidade + ndispositivo;
-      endeluminosidade2 = endeluminosidade2 + lampada2;
-      //Composição endereço Luminosidade da Lâmpada 3
-      endeluminosidade3 = nomeluminosidade + ndispositivo;
-      endeluminosidade3 = endeluminosidade3 + lampada3;
-      //Composição endereço Luminosidade da Lâmpada 4
-      endeluminosidade4 = nomeluminosidade + ndispositivo;
-      endeluminosidade4 = endeluminosidade4 + lampada4;
-      //SSID Wifi
-      wifi = wifii;
-      //Senha Wifi
-      senha = senhai;
-      //Pasta do Usuário Vagalumens no Firebase
-      listenerPath = listenerPathi;
-      //Autorizando travas que fazem parte da configuração inicial desnecessária
-      travamemoria = 1;
+        //SSID Wifi
+        wifi = wifii;
+        //Senha Wifi
+        senha = senhai;
+        //Pasta do Usuário Vagalumens no Firebase
+        listenerPath = listenerPathi;
+        //Autorizando travas que fazem parte da configuração inicial desnecessária
+        travamemoria = 1;
+      }
     }
+    if (botaomenos == 1 && botaomais == 0 && botaoenter == 0) {
+      if (travabot == 0) {
+        if (posion == 1) {
+          posion = 4;
+        } else {
+          posion = posion - 1;
+        }
+        travad2 = 0;
+        travabot = 1;
+      }
+    }
+    if (botaomenos == 0 && botaomais == 1 && botaoenter == 0) {
+      if (travabot == 0) {
+        if (posion == 4) {
+          posion = 1;
+        } else {
+          posion = posion + 1;
+        }
+        travad2 = 0;
+        travabot = 1;
+      }
+    }
+    if (botaomenos == 0 && botaomais == 0 && botaoenter == 0) {
+      travabot = 0;
+    }
+
+
+
 
 
     //Tela LCD Inicial com WIFI conectado
     if (trava6 == 1) {
-      if (travad2 == 0) {
-
-
-
-
+      if (travad3 == 0) {
 
         lcd.clear();
         delay(100);
-        lcd.setCursor(6, 1);
-        lcd.write(1);         //Símbolo Esquerdo WIFI
-        lcd.setCursor(7, 1);  //Símbolo Direito WIFI
+        lcd.setCursor(4, 1);  // Símbolo Esquerdo WIFI
+        lcd.write(1);
+        lcd.setCursor(5, 1);  // Símbolo Direito WIFI
         lcd.write(0);
-        lcd.setCursor(15, 1);
-        lcd.write(0);
-        lcd.setCursor(0, 1);
-        lcd.print("Online");
-        lcd.setCursor(0, 0);
-        lcd.print("M:");
-        lcd.setCursor(8, 0);
-        lcd.print("A:");
-        lcd.setCursor(9, 1);
-        lcd.print("L:");
+        lcd.setCursor(15, 1);  // Seta direita
+        lcd.write(2);
+        lcd.setCursor(13, 0);  // Parênteses esquerdo
+        lcd.write(5);
+        lcd.setCursor(15, 0);  // Parênteses direito
+        lcd.write(6);
+        lcd.setCursor(0, 1);  // Seta esquerda
+        lcd.write(4);
+        lcd.setCursor(2, 1);
+        lcd.print("On");
+        travad3 = 1;
+      }
+      if (travad2 == 0) {
+        if (posion == 1) {
 
+          lcd.setCursor(14, 0);  // Número da lâmpada das informações em exibição
+          lcd.print("1");
+          //Informações Modo
+          lcd.setCursor(0, 0);
+          lcd.print("M:");
+          lcd.setCursor(2, 0);
+          lcd.print(lcdmodo1);
+          //Informações Ambiente
+          lcd.setCursor(7, 0);
+          lcd.print("      ");
+          lcd.setCursor(5, 0);
+          lcd.print("A:");
+          lcd.setCursor(7, 0);
+          lcd.print(lcdambiente1);
+          //Informações Luminosidade
+          lcd.setCursor(10, 1);
+          lcd.print("   ");
+          lcd.setCursor(8, 1);
+          lcd.print("L:");
+          lcd.setCursor(10, 1);
+          lcd.print(luminosidade1);
+          lcd.setCursor(13, 1);
+          lcd.print("%");
+        }
+        if (posion == 2) {
+          lcd.setCursor(14, 0);  // Número da lâmpada das informações em exibição
+          lcd.print("2");
+          //Informações Modo
+          lcd.setCursor(0, 0);
+          lcd.print("M:");
+          lcd.setCursor(2, 0);
+          lcd.print(lcdmodo2);
+          //Informações Ambiente
+          lcd.setCursor(7, 0);
+          lcd.print("     ");
+          lcd.setCursor(5, 0);
+          lcd.print("A:");
+          lcd.setCursor(7, 0);
+          lcd.print(lcdambiente2);
+          //Informações Luminosidade
+          lcd.setCursor(10, 1);
+          lcd.print("    ");
+          lcd.setCursor(8, 1);
+          lcd.print("L:");
+          lcd.setCursor(10, 1);
+          lcd.print(luminosidade2);
+          lcd.setCursor(13, 1);
+          lcd.print("%");
+        }
 
+        if (posion == 3) {
+          lcd.setCursor(14, 0);  // Número da lâmpada das informações em exibição
+          lcd.print("3");
+          //Informações Modo
+          lcd.setCursor(0, 0);
+          lcd.print("M:");
+          lcd.setCursor(2, 0);
+          lcd.print(lcdmodo3);
+          //Informações Ambiente
+          lcd.setCursor(7, 0);
+          lcd.print("     ");
+          lcd.setCursor(5, 0);
+          lcd.print("A:");
+          lcd.setCursor(7, 0);
+          lcd.print(lcdambiente3);
+          //Informações Luminosidade
+          lcd.setCursor(10, 1);
+          lcd.print("    ");
+          lcd.setCursor(8, 1);
+          lcd.print("L:");
+          lcd.setCursor(10, 1);
+          lcd.print(luminosidade3);
+          lcd.setCursor(13, 1);
+          lcd.print("%");
+        }
 
-
-
-
-
-
-
-
+        if (posion == 4) {
+          lcd.setCursor(14, 0);  // Número da lâmpada das informações em exibição
+          lcd.print("4");
+          //Informações Modo
+          lcd.setCursor(0, 0);
+          lcd.print("M:");
+          lcd.setCursor(2, 0);
+          lcd.print(lcdmodo4);
+          //Informações Ambiente
+          lcd.setCursor(7, 0);
+          lcd.print("     ");
+          lcd.setCursor(5, 0);
+          lcd.print("A:");
+          lcd.setCursor(7, 0);
+          lcd.print(lcdambiente4);
+          //Informações Luminosidade
+          lcd.setCursor(10, 1);
+          lcd.print("    ");
+          lcd.setCursor(8, 1);
+          lcd.print("L:");
+          lcd.setCursor(10, 1);
+          lcd.print(luminosidade4);
+          lcd.setCursor(13, 1);
+          lcd.print("%");
+        }
         travad2 = 1;
         travad1 = 0;
       }
@@ -718,19 +944,17 @@ void loop() {
       if (!Firebase.RTDB.beginStream(&stream, listenerPath.c_str()))
         Serial.printf("stream begin error, %s\n\n", stream.errorReason().c_str());
       Firebase.RTDB.setStreamCallback(&stream, streamCallback, streamTimeoutCallback);
-      trava6 = 1;
-    }
-
-    //Salvar dados do WIFI na memória do ESP
-    if (trava5 == 1) {
+      //Salvar dados do WIFI na memória do ESP
       preferences.putString("wifis", wifi);
       preferences.putString("senhas", senha);
       preferences.putString("path", listenerPath);
       preferences.putString("dispon", ndispositivo);
+      pathing();
+      trava6 = 1;
     }
 
     //Inicializar WIFI
-    if (trava4 == 1 && trava5 == 0) {
+    if (trava4 == 1 && trava5 == 0 || travamemoria == 1 && trava5 == 0) {
       WiFi.begin(wifi, senha);  //Conecta WIFI com SSID e Senhas salvos em váriaveis
       Serial.println("");
       Serial.print("-> Conectando no Wifi..");  //Informação em processo de conectar no WIFI no Serial
@@ -743,8 +967,7 @@ void loop() {
       lcd.setCursor(0, 1);
       lcd.print("|              |");
 
-      while (WiFi.status() != WL_CONNECTED || vmabt == 1) {
-        vmabt = !digitalRead(mabt);
+      while (WiFi.status() != WL_CONNECTED) {
 
         Serial.print(".");  //Pontos carregamento Serial
 
@@ -886,11 +1109,6 @@ void loop() {
 
   //Modo OFFLINE de operação
   if (vmabt == 1) {
-
-    // Ler valores dos Botões
-    botaomenos = !digitalRead(btmenos);
-    botaomais = !digitalRead(btmais);
-    botaoenter = !digitalRead(btenter);
 
     // Caso botão menos pressionado
     if (botaomenos == 1 && botaomais == 0 && botaoenter == 0) {
@@ -1401,53 +1619,205 @@ void loop() {
 
 
 
-  //MODO Automático de set luminosidade da Lâmpada
-  if (modo == 3) {
-
-
-    if (trava20 == 0) {
-      millis2 = millis();
-      trava20 = 1;
-    }
-    if ((millis() - millis2) > 200) {
-      if (Lux < 400) {
-        if (luminosidade1 < 100) {
-          luminosidade1 = luminosidade1 + 1;
-          int dutyCycle = 0;
-          dutyCycle = map(luminosidade1, 0, 100, 0, 255);
-          ledcWrite(ledChannel, dutyCycle);
-          lcd.setCursor(12, 1);
-          lcd.print("    ");
-          lcd.setCursor(12, 1);
-          lcd.print(luminosidade1);
-          lcd.setCursor(14, 1);
-          lcd.print("%");
+  if (travamillis4 == 0) {
+    millis2 = millis();
+    travamillis4 = 1;
+  }
+  if ((millis() - millis2) > 500) {
+    travageral1 = 0;
+    travamillis4 = 0;
+  }
+  if (travageral1 == 0) {
+    if (lcdmodo1 == "AS") {
+      if (lcdambiente1 == "Basic") {
+        if (Lux < 500) {
+          if (luminosidade1 < 100) {
+            luminosidade1 = luminosidade1 + 1;
+            saida1 = map(luminosidade1, 0, 100, 0, 255);
+            saida2 = map(luminosidade1, 0, 100, 0, 255);
+            ledcWrite(canal1, saida1);
+            lcd.setCursor(10, 1);
+            lcd.print("    ");
+            lcd.setCursor(10, 1);
+            lcd.print(luminosidade1);
+            lcd.setCursor(14, 1);
+            lcd.print("%");
+          }
+        }
+        if (Lux > 750) {
+          if (luminosidade1 > 0) {
+            luminosidade1 = luminosidade1 - 1;
+            saida1 = map(luminosidade1, 0, 100, 0, 255);
+            saida2 = map(luminosidade1, 0, 100, 0, 255);
+            ledcWrite(canal1, saida1);
+            lcd.setCursor(10, 1);
+            lcd.print("    ");
+            lcd.setCursor(10, 1);
+            lcd.print(luminosidade1);
+            lcd.setCursor(13, 1);
+            lcd.print("%");
+          }
         }
       }
-      if (Lux > 600) {
-        if (luminosidade1 > 0) {
-          luminosidade1 = luminosidade1 - 1;
-          int dutyCycle = 0;
-          dutyCycle = map(luminosidade1, 0, 100, 0, 255);
-          ledcWrite(ledChannel, dutyCycle);
-          lcd.setCursor(12, 1);
-          lcd.print("    ");
-          lcd.setCursor(12, 1);
-          lcd.print(luminosidade);
-          lcd.setCursor(14, 1);
-          lcd.print("%");
+
+      if (lcdambiente1 == "Ler") {
+        if (Lux < 650) {
+          if (luminosidade1 < 100) {
+            luminosidade1 = luminosidade1 + 1;
+            saida1 = map(luminosidade1, 0, 100, 0, 255);
+            saida2 = map(luminosidade1, 0, 100, 0, 255);
+            ledcWrite(canal1, saida1);
+            lcd.setCursor(10, 1);
+            lcd.print("    ");
+            lcd.setCursor(10, 1);
+            lcd.print(luminosidade1);
+            lcd.setCursor(13, 1);
+            lcd.print("%");
+          }
+        }
+        if (Lux > 850) {
+          if (luminosidade1 > 0) {
+            luminosidade1 = luminosidade1 - 1;
+            saida1 = map(luminosidade1, 0, 100, 0, 255);
+            saida2 = map(luminosidade1, 0, 100, 0, 255);
+            ledcWrite(canal1, saida1);
+            lcd.setCursor(12, 1);
+            lcd.print("    ");
+            lcd.setCursor(10, 1);
+            lcd.print(luminosidade1);
+            lcd.setCursor(13, 1);
+            lcd.print("%");
+          }
         }
       }
-      trava20 = 0;
+
+      if (lcdambiente1 == "Solda") {
+        if (Lux < 900) {
+          if (luminosidade1 < 100) {
+            luminosidade1 = luminosidade1 + 1;
+            saida1 = map(luminosidade1, 0, 100, 0, 255);
+            saida2 = map(luminosidade1, 0, 100, 0, 255);
+            ledcWrite(canal1, saida1);
+            lcd.setCursor(10, 1);
+            lcd.print("    ");
+            lcd.setCursor(10, 1);
+            lcd.print(luminosidade1);
+            lcd.setCursor(13, 1);
+            lcd.print("%");
+          }
+        }
+        if (Lux > 1100) {
+          if (luminosidade1 > 0) {
+            luminosidade1 = luminosidade1 - 1;
+            saida1 = map(luminosidade1, 0, 100, 0, 255);
+            saida2 = map(luminosidade1, 0, 100, 0, 255);
+            ledcWrite(canal1, saida1);
+          lcd.setCursor(10, 1);
+            lcd.print("    ");
+            lcd.setCursor(10, 1);
+            lcd.print(luminosidade1);
+            lcd.setCursor(13, 1);
+            lcd.print("%");
+          }
+        }
+      }
+
+      if (lcdambiente1 == "Proj") {
+        if (Lux < 50) {
+          if (luminosidade1 < 100) {
+            luminosidade1 = luminosidade1 + 1;
+            saida1 = map(luminosidade1, 0, 100, 0, 255);
+            saida2 = map(luminosidade1, 0, 100, 0, 255);
+            ledcWrite(canal1, saida1);
+            lcd.setCursor(10, 1);
+            lcd.print("    ");
+            lcd.setCursor(10, 1);
+            lcd.print(luminosidade1);
+            lcd.setCursor(13, 1);
+            lcd.print("%");
+          }
+        }
+        if (Lux > 300) {
+          if (luminosidade1 > 0) {
+            luminosidade1 = luminosidade1 - 1;
+            saida1 = map(luminosidade1, 0, 100, 0, 255);
+            saida2 = map(luminosidade1, 0, 100, 0, 255);
+            ledcWrite(canal1, saida1);
+            lcd.setCursor(10, 1);
+            lcd.print("    ");
+            lcd.setCursor(10, 1);
+            lcd.print(luminosidade1);
+            lcd.setCursor(13, 1);
+            lcd.print("%");
+          }
+        }
+      }
+      if (lcdambiente1 == "PC") {
+        if (Lux < 300) {
+          if (luminosidade1 < 100) {
+            luminosidade1 = luminosidade1 + 1;
+            saida1 = map(luminosidade1, 0, 100, 0, 255);
+            saida2 = map(luminosidade1, 0, 100, 0, 255);
+            ledcWrite(canal1, saida1);
+          lcd.setCursor(10, 1);
+            lcd.print("    ");
+            lcd.setCursor(10, 1);
+            lcd.print(luminosidade1);
+            lcd.setCursor(13, 1);
+            lcd.print("%");
+          }
+        }
+        if (Lux > 500) {
+          if (luminosidade1 > 0) {
+            luminosidade1 = luminosidade1 - 1;
+            saida1 = map(luminosidade1, 0, 100, 0, 255);
+             saida2 = map(luminosidade1, 0, 100, 0, 255);
+            ledcWrite(canal1, saida1);
+          lcd.setCursor(10, 1);
+            lcd.print("    ");
+            lcd.setCursor(10, 1);
+            lcd.print(luminosidade1);
+            lcd.setCursor(13, 1);
+            lcd.print("%");
+          }
+        }
+      }
     }
+    travageral1 = 1;
   }
 
 
 
-  //Modo Manual de set luminosidade da lâmpada
-  if (modo == 2) {
-    int dutyCycle = 0;
-    dutyCycle = map(luminosidade1, 0, 100, 0, 255);
-    ledcWrite(ledChannel, dutyCycle);
+
+
+
+
+
+
+  if (trava20 == 0) {
+    millis7 = millis();
+    trava20 = 1;
+  }
+  if ((millis() - millis7) > 500) {
+
+
+
+
+    //Modo Manual de set luminosidade da lâmpada
+    if (modo == 2) {
+
+      saida1 = map(luminosidade1, 0, 100, 0, 255);
+      ledcWrite(canal1, saida1);
+
+      saida2 = map(luminosidade2, 0, 100, 0, 255);
+      ledcWrite(canal2, saida2);
+
+      saida3 = map(luminosidade3, 0, 100, 0, 255);
+      ledcWrite(canal3, saida3);
+
+      saida4 = map(luminosidade4, 0, 100, 0, 255);
+      ledcWrite(canal4, saida4);
+    }
+    trava20 = 0;
   }
 }
